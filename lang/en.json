@@ -1,0 +1,34 @@
+{
+  "plugin": {
+    "name": "BetterCodeBlocks",
+    "description": "Syntax highlighting, copy button & file viewer for code blocks"
+  },
+  "settings": {
+    "title": "BetterCodeBlocks Settings",
+    "enabled": "Enable plugin",
+    "enabledDesc": "Toggle all features on/off",
+    "lineNumbers": "Line numbers",
+    "lineNumbersDesc": "Show line numbers in code blocks"
+  },
+  "ui": {
+    "copy": "⎘  Copy",
+    "copied": "✓  Copied",
+    "viewCode": "View Code",
+    "copyIcon": "⎘",
+    "copiedIcon": "✓",
+    "downloadIcon": "↓",
+    "closeIcon": "✕",
+    "tabCode": "📄  Code",
+    "tabInfo": "ℹ️  Info",
+    "openBrowser": "🔗  Open in browser",
+    "failedLoad": "Failed to load file",
+    "toastCopied": "Copied ✓",
+    "toastLoaded": "BetterCodeBlocks ✓"
+  },
+  "info": {
+    "fileName": "File name",
+    "extension": "Extension",
+    "size": "Size",
+    "lines": "Lines"
+  }
+}
