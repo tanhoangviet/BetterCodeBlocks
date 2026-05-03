@@ -9,6 +9,7 @@ const patches: Array<() => void> = [];
 
 function patchCodeBlocks(): void {
   const SM = findByProps("defaultRules", "parserFor");
+<<<<<<< HEAD
   if (!SM?.defaultRules?.codeBlock) return;
   const orig = SM.defaultRules.codeBlock.react;
   SM.defaultRules.codeBlock.react = (node: any, _: any, state: any) =>
@@ -18,6 +19,22 @@ function patchCodeBlocks(): void {
       lang: node.lang ?? "",
     });
   patches.push(() => { SM.defaultRules.codeBlock.react = orig; });
+=======
+  if (!SM?.defaultRules) return;
+
+  // Patch cả codeBlock và fence
+  for (const key of ["codeBlock", "fence"] as const) {
+    if (!SM.defaultRules[key]) continue;
+    const orig = SM.defaultRules[key].react;
+    SM.defaultRules[key].react = (node: any, _: any, state: any) =>
+      React.createElement(EnhancedCodeBlock, {
+        key: state?.key ?? String(Math.random()),
+        code: node.content ?? "",
+        lang: node.lang ?? "",
+      });
+    patches.push(() => { SM.defaultRules[key].react = orig; });
+  }
+>>>>>>> cc42eff (fix: patch both codeBlock and fence rules)
 }
 
 function patchAttachments(): void {
