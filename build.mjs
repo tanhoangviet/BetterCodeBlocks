@@ -1,67 +1,70 @@
-// build.mjs — Bundles plugin into single index.js for Kettu/Bunny
-import esbuild from "esbuild";
-import { copyFileSync, mkdirSync, existsSync } from "fs";
+import { readFile, writeFile, mkdir } from "fs/promises";
+import { extname } from "path";
+import { createHash } from "crypto";
+import { rollup } from "rollup";
+import esbuild from "rollup-plugin-esbuild";
+import commonjs from "@rollup/plugin-commonjs";
+import nodeResolve from "@rollup/plugin-node-resolve";
+import json from "@rollup/plugin-json";
+import swc from "@swc/core";
 
-const watch = process.argv.includes("--watch");
+const extensions = [".js",".jsx",".mjs",".ts",".tsx",".cts",".mts"];
 
-const VENDETTA_EXTERNALS = [
-  "@vendetta",
-  "@vendetta/metro",
-  "@vendetta/metro/common",
-  "@vendetta/patcher",
-  "@vendetta/storage",
-  "@vendetta/plugin",
-  "@vendetta/ui/toasts",
-  "@vendetta/ui/assets",
-  "@vendetta/ui",
+const plugins = [
+  nodeResolve({ extensions }),
+  commonjs(),
+  json(),
+  {
+    name: "swc",
+    async transform(code, id) {
+      const ext = extname(id);
+      if (!extensions.includes(ext)) return null;
+      const ts = ext.includes("ts");
+      const tsx = ts ? ext.endsWith("x") : undefined;
+      const jsx = !ts ? ext.endsWith("x") : undefined;
+      const result = await swc.transform(code, {
+        filename: id,
+        jsc: {
+          externalHelpers: true,
+          parser: { syntax: ts ? "typescript" : "ecmascript", tsx, jsx },
+        },
+        env: {
+          targets: "defaults",
+          include: ["transform-classes", "transform-arrow-functions"],
+        },
+      });
+      return result.code;
+    },
+  },
+  esbuild({ minify: true }),
 ];
 
-/** @type {import("esbuild").BuildOptions} */
-const opts = {
-  entryPoints:  ["src/index.ts"],
-  bundle:       true,
-  format:       "cjs",
-  target:       "es2019",
-  outfile:      "dist/index.js",
-  external:     VENDETTA_EXTERNALS,
-  jsx:          "transform",
-  jsxFactory:   "React.createElement",
-  jsxFragment:  "React.Fragment",
-  define:       { "__DEV__": "false" },
-  treeShaking:  true,
-  minify:       !watch,
-  logLevel:     "info",
-  banner: {
-    // Shim vendetta/bunny APIs so the bundle resolves them at runtime
-    js: `
-const _vApi = (typeof vendetta !== "undefined" ? vendetta : (typeof bunny !== "undefined" ? bunny : {}));
-const _require = (id) => {
-  if (id === "@vendetta/metro/common") return _vApi?.metro?.common ?? {};
-  if (id === "@vendetta/metro")        return _vApi?.metro ?? {};
-  if (id === "@vendetta/patcher")      return _vApi?.patcher ?? {};
-  if (id === "@vendetta/storage")      return _vApi?.plugin?.storage ?? {};
-  if (id === "@vendetta/plugin")       return _vApi?.plugin ?? {};
-  if (id === "@vendetta/ui/toasts")    return _vApi?.ui?.toasts ?? {};
-  if (id === "@vendetta/ui/assets")    return _vApi?.ui?.assets ?? {};
-  if (id === "@vendetta/ui")           return _vApi?.ui ?? {};
-  if (id === "react")                  return _vApi?.metro?.common?.React ?? {};
-  if (id === "react-native")           return _vApi?.metro?.common?.ReactNative ?? {};
-  return {};
-};
-`.trim(),
+await mkdir("./dist/BetterCodeBlocks", { recursive: true });
+const manifest = JSON.parse(await readFile("./manifest.json"));
+const outPath = "./dist/BetterCodeBlocks/index.js";
+
+const bundle = await rollup({
+  input: "./src/index.ts",
+  onwarn: () => {},
+  plugins,
+});
+
+await bundle.write({
+  file: outPath,
+  globals(id) {
+    // Official mapping: strip @ and replace / with .
+    if (id.startsWith("@vendetta")) return id.substring(1).replace(/\//g, ".");
+    if (id === "react") return "window.React";
+    return null;
   },
-};
+  format: "iife",
+  compact: true,
+  exports: "named",
+});
+await bundle.close();
 
-if (watch) {
-  const ctx = await esbuild.context(opts);
-  await ctx.watch();
-  console.log("👀 Watching...");
-} else {
-  mkdirSync("dist", { recursive: true });
-  await esbuild.build(opts);
-
-  // Also copy manifest to dist/
-  copyFileSync("manifest.json", "dist/manifest.json");
-
-  console.log("✅ Built → dist/index.js + dist/manifest.json");
-}
+const toHash = await readFile(outPath);
+manifest.hash = createHash("sha256").update(toHash).digest("hex");
+manifest.main = "index.js";
+await writeFile("./dist/BetterCodeBlocks/manifest.json", JSON.stringify(manifest));
+console.log("Built BetterCodeBlocks!");
