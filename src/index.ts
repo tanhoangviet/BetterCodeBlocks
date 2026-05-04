@@ -1,54 +1,52 @@
 import { React } from "@vendetta/metro/common";
-import { findByProps, findByName } from "@vendetta/metro";
-import { after } from "@vendetta/patcher";
 import { showToast } from "@vendetta/ui/toasts";
 import { EnhancedCodeBlock } from "./components/EnhancedCodeBlock";
 import { AttachmentPill, isSupportedFile } from "./components/FileViewer";
+import { after } from "@vendetta/patcher";
+import { findByProps, findByName } from "@vendetta/metro";
 
 const patches: Array<() => void> = [];
 
-function patchCodeBlocks(): void {
-  const SM = findByProps("defaultRules", "parserFor");
-  if (!SM?.defaultRules) return;
-
-  for (const key of ["codeBlock", "fence"] as const) {
-    if (!SM.defaultRules[key]) continue;
-    const orig = SM.defaultRules[key].react;
-    SM.defaultRules[key].react = (node: any, _: any, state: any) =>
+function patchCodeblock() {
+  // Target: bunny.ui.components.Codeblock (confirmed via evaluate)
+  const g = globalThis as any;
+  const components = g?.bunny?.ui?.components ?? g?.vendetta?.ui?.components;
+  if (components?.Codeblock) {
+    const orig = components.Codeblock;
+    components.Codeblock = (props: any) =>
       React.createElement(EnhancedCodeBlock, {
-        key: state?.key ?? String(Math.random()),
-        code: node.content ?? "",
-        lang: node.lang ?? "",
+        code: props.content ?? props.code ?? "",
+        lang: props.language ?? props.lang ?? "",
       });
-    patches.push(() => { SM.defaultRules[key].react = orig; });
+    patches.push(() => { components.Codeblock = orig; });
+    return true;
   }
+  return false;
 }
 
-function patchAttachments(): void {
+function patchAttachments() {
   const AC = findByName("Attachment") ?? findByName("FileAttachment");
   if (!AC) return;
-  const unpatch = after("default", AC, (args: any[], res: any) => {
+  const up = after("default", AC, (args: any[], res: any) => {
     if (!res) return res;
     try {
       const p = args[0];
-      const filename: string = p?.filename ?? p?.name ?? "";
-      if (!isSupportedFile(filename)) return res;
+      const fn: string = p?.filename ?? p?.name ?? "";
+      if (!isSupportedFile(fn)) return res;
       return React.createElement(AttachmentPill, {
-        filename,
-        url: p?.url ?? p?.proxy_url ?? "",
-        fileSize: p?.size ?? 0,
-        children: res,
+        filename: fn, url: p?.url ?? p?.proxy_url ?? "",
+        fileSize: p?.size ?? 0, children: res,
       });
     } catch { return res; }
   });
-  patches.push(unpatch);
+  patches.push(up);
 }
 
 export default {
   onLoad() {
-    patchCodeBlocks();
+    const ok = patchCodeblock();
     patchAttachments();
-    showToast("BetterCodeBlocks ✓");
+    showToast(ok ? "BetterCodeBlocks ✓" : "BCB: fallback mode");
   },
   onUnload() {
     patches.forEach(u => { try { u(); } catch {} });
