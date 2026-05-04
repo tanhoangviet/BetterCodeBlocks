@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LATERANO · Plugin Registry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Cinzel:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --ink:#0a0c10;
+  --paper:#0d1117;
+  --surface:#111827;
+  --border:#1e2d3d;
+  --gold:#c8a96e;
+  --gold2:#f0d080;
+  --cyan:#4fc3f7;
+  --red:#e53935;
+  --text:#d4cbb8;
+  --muted:#5a6478;
+  --white:#f0ece0;
+}
+
+html{scroll-behavior:smooth}
+body{
+  background:var(--ink);
+  color:var(--text);
+  font-family:'Rajdhani',sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  overflow-x:hidden;
+  min-height:100vh;
+}
+
+/* ── Noise grain overlay ── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;
+}
+
+/* ── Blueprint grid ── */
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;
+  background:
+    linear-gradient(rgba(79,195,247,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(79,195,247,.03) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+}
+
+.z1{position:relative;z-index:1}
+
+/* ── Diagonal accent lines ── */
+.diag{
+  position:fixed;top:0;right:0;width:60vw;height:100vh;
+  z-index:0;overflow:hidden;pointer-events:none;
+}
+.diag::before,.diag::after{
+  content:'';position:absolute;top:-20%;right:-10%;
+  width:2px;height:160%;background:linear-gradient(180deg,transparent,rgba(200,169,110,.15),transparent);
+  transform:rotate(-25deg);transform-origin:top right;
+}
+.diag::after{right:15%;opacity:.5}
+
+/* ── Scanline effect ── */
+@keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+.scanline{
+  position:fixed;top:0;left:0;width:100%;height:4px;z-index:999;pointer-events:none;
+  background:linear-gradient(transparent,rgba(79,195,247,.06),transparent);
+  animation:scan 8s linear infinite;
+}
+
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  border-bottom:1px solid var(--border);
+  background:rgba(10,12,16,.85);
+  backdrop-filter:blur(16px);
+}
+.nav-inner{
+  max-width:1100px;margin:0 auto;padding:0 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  height:56px;
+}
+.nav-logo{
+  display:flex;align-items:center;gap:12px;text-decoration:none;
+}
+.logo-badge{
+  width:32px;height:32px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:var(--ink);
+}
+.logo-text{
+  font-family:'Cinzel',serif;font-size:13px;letter-spacing:3px;
+  color:var(--gold);text-transform:uppercase;
+}
+.nav-links{display:flex;gap:28px}
+.nav-links a{
+  color:var(--muted);font-size:13px;letter-spacing:1px;
+  text-decoration:none;text-transform:uppercase;font-weight:600;
+  transition:color .2s;position:relative;
+}
+.nav-links a:hover{color:var(--gold)}
+.nav-links a::after{
+  content:'';position:absolute;bottom:-2px;left:0;width:0;height:1px;
+  background:var(--gold);transition:width .2s;
+}
+.nav-links a:hover::after{width:100%}
+
+/* ── HERO ── */
+.hero{
+  min-height:100vh;display:flex;align-items:center;
+  padding:80px 24px 60px;
+  position:relative;overflow:hidden;
+}
+.hero-inner{max-width:1100px;margin:0 auto;width:100%}
+
+/* Large decorative text */
+.hero-deco{
+  position:absolute;right:-5%;top:50%;transform:translateY(-50%);
+  font-family:'Cinzel',serif;font-size:clamp(120px,18vw,220px);
+  font-weight:600;color:transparent;
+  -webkit-text-stroke:1px rgba(200,169,110,.06);
+  pointer-events:none;user-select:none;white-space:nowrap;
+  letter-spacing:-4px;
+}
+
+.tag{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:var(--cyan);letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:20px;
+}
+.tag::before{content:'';width:20px;height:1px;background:var(--cyan)}
+.tag::after{content:'';width:20px;height:1px;background:var(--cyan)}
+
+h1{
+  font-family:'Cinzel',serif;
+  font-size:clamp(2.4rem,6vw,4.5rem);
+  font-weight:600;line-height:1.05;
+  color:var(--white);letter-spacing:-1px;
+  margin-bottom:8px;
+}
+h1 em{font-style:normal;color:var(--gold)}
+
+.hero-sub{
+  font-size:1.1rem;color:var(--muted);
+  max-width:480px;margin:16px 0 40px;line-height:1.7;
+  font-weight:500;
+}
+
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap}
+
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 28px;font-family:'Rajdhani',sans-serif;
+  font-size:14px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;text-decoration:none;
+  cursor:pointer;border:none;transition:all .25s;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+}
+.btn-primary{
+  background:var(--gold);color:var(--ink);
+}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(200,169,110,.3)}
+.btn-secondary{
+  background:transparent;color:var(--gold);
+  border:1px solid rgba(200,169,110,.3);
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+}
+.btn-secondary:hover{border-color:var(--gold);background:rgba(200,169,110,.05);transform:translateY(-2px)}
+
+/* ── STATS ── */
+.stats{
+  display:flex;gap:0;margin-top:64px;
+  border:1px solid var(--border);
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));
+  max-width:560px;background:var(--surface);overflow:hidden;
+}
+.stat{flex:1;padding:20px 24px;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat-n{
+  font-family:'Share Tech Mono',monospace;font-size:2rem;
+  color:var(--gold);display:block;
+}
+.stat-l{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+
+/* ── SECTION ── */
+section{padding:80px 24px;position:relative}
+.wrap{max-width:1100px;margin:0 auto}
+
+.section-tag{
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:var(--cyan);letter-spacing:3px;text-transform:uppercase;
+  display:flex;align-items:center;gap:12px;margin-bottom:12px;
+}
+.section-tag::before{content:'[';color:var(--muted)}
+.section-tag::after{content:']';color:var(--muted)}
+h2{
+  font-family:'Cinzel',serif;font-size:clamp(1.6rem,3vw,2.4rem);
+  color:var(--white);margin-bottom:48px;letter-spacing:-0.5px;
+}
+h2 span{color:var(--muted)}
+
+/* ── PLUGIN CARDS ── */
+.plugins{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:2px}
+
+.plugin-card{
+  background:var(--surface);border:1px solid var(--border);
+  padding:28px;position:relative;overflow:hidden;
+  transition:border-color .25s,transform .25s;
+  clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,0 100%);
+}
+.plugin-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(200,169,110,.04),transparent 50%);
+  opacity:0;transition:opacity .25s;
+}
+.plugin-card:hover{border-color:rgba(200,169,110,.4);transform:translateY(-3px)}
+.plugin-card:hover::before{opacity:1}
+
+/* Corner decoration */
+.plugin-card::after{
+  content:'';position:absolute;top:0;right:0;
+  width:20px;height:20px;
+  background:linear-gradient(225deg,var(--gold) 40%,transparent 40%);
+  opacity:.5;
+}
+
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.card-icon{
+  width:48px;height:48px;
+  background:linear-gradient(135deg,rgba(200,169,110,.15),rgba(200,169,110,.05));
+  border:1px solid rgba(200,169,110,.2);
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+.card-ver{
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:var(--muted);background:rgba(255,255,255,.04);
+  padding:3px 8px;border:1px solid var(--border);letter-spacing:1px;
+}
+.card-name{font-size:1.15rem;font-weight:700;color:var(--white);margin-bottom:6px;letter-spacing:.5px}
+.card-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px}
+
+.card-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px}
+.tag-pill{
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  padding:2px 10px;letter-spacing:1px;
+  border:1px solid;
+}
+.tg{color:var(--gold);border-color:rgba(200,169,110,.3);background:rgba(200,169,110,.06)}
+.tc{color:var(--cyan);border-color:rgba(79,195,247,.3);background:rgba(79,195,247,.06)}
+.tr{color:#ef9a9a;border-color:rgba(239,154,154,.3);background:rgba(239,154,154,.06)}
+
+.install-box{
+  background:rgba(0,0,0,.3);border:1px solid var(--border);
+  padding:10px 14px;display:flex;align-items:center;gap:8px;
+  cursor:pointer;transition:border-color .2s;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);
+}
+.install-box:hover{border-color:var(--gold)}
+.install-url{
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:var(--cyan);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.copy-btn{
+  font-size:14px;color:var(--muted);background:none;border:none;
+  cursor:pointer;transition:color .2s;flex-shrink:0;
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:var(--muted);letter-spacing:1px;
+}
+.copy-btn:hover,.copy-btn.ok{color:var(--gold)}
+
+/* ── INSTALL STEPS ── */
+.steps{display:flex;flex-direction:column;gap:0}
+.step{
+  display:flex;gap:20px;align-items:flex-start;
+  padding:24px;border:1px solid var(--border);border-bottom:none;
+  background:var(--surface);position:relative;
+  transition:border-color .2s;
+}
+.step:first-child{clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)}
+.step:last-child{border-bottom:1px solid var(--border);clip-path:polygon(0 0,100% 0,100% 100%,16px 100%,0 calc(100% - 16px))}
+.step:hover{border-color:rgba(200,169,110,.3)}
+.step-n{
+  width:40px;height:40px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:var(--ink);font-weight:700;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+}
+.step-title{font-weight:700;color:var(--white);font-size:1rem;margin-bottom:4px;letter-spacing:.5px}
+.step-desc{font-size:13px;color:var(--muted);line-height:1.6}
+.step-code{
+  margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:12px;
+  color:var(--cyan);background:rgba(79,195,247,.05);
+  border:1px solid rgba(79,195,247,.15);padding:8px 12px;
+  overflow-x:auto;white-space:nowrap;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%);
+}
+
+/* ── FEATURES ── */
+.features{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.feat{
+  padding:20px;border:1px solid var(--border);background:var(--surface);
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%);
+  transition:border-color .2s,transform .2s;
+}
+.feat:hover{border-color:rgba(200,169,110,.3);transform:translateY(-2px)}
+.feat-icon{font-size:24px;margin-bottom:10px}
+.feat-title{font-weight:700;color:var(--white);font-size:14px;letter-spacing:.5px;margin-bottom:4px}
+.feat-desc{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* ── DIVIDER ── */
+.divider{
+  height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);
+  margin:0 24px;
+}
+
+/* ── FOOTER ── */
+footer{
+  border-top:1px solid var(--border);padding:32px 24px;
+  background:rgba(0,0,0,.3);
+}
+.footer-inner{
+  max-width:1100px;margin:0 auto;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:16px;
+}
+.footer-left{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:1px}
+.footer-links{display:flex;gap:20px}
+.footer-links a{color:var(--muted);font-size:12px;text-decoration:none;letter-spacing:1px;transition:color .2s}
+.footer-links a:hover{color:var(--gold)}
+
+/* ── Arknights UI corners ── */
+.ak-corner{position:relative}
+.ak-corner::before,.ak-corner::after{
+  content:'';position:absolute;width:12px;height:12px;
+}
+.ak-corner::before{top:0;left:0;border-top:2px solid var(--gold);border-left:2px solid var(--gold)}
+.ak-corner::after{bottom:0;right:0;border-bottom:2px solid var(--gold);border-right:2px solid var(--gold)}
+
+/* ── Animated orb ── */
+@keyframes orb{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,-20px) scale(1.1)}}
+.orb{
+  position:fixed;z-index:0;border-radius:50%;filter:blur(100px);pointer-events:none;
+  animation:orb 12s ease-in-out infinite;
+}
+.orb1{width:400px;height:400px;top:-100px;right:-100px;background:rgba(200,169,110,.04)}
+.orb2{width:300px;height:300px;bottom:-80px;left:-60px;background:rgba(79,195,247,.03);animation-delay:-6s}
+
+@media(max-width:640px){
+  .nav-links{display:none}
+  .stats{flex-wrap:wrap}
+  .stat{min-width:50%}
+  h1{font-size:2rem}
+  .plugins{grid-template-columns:1fr}
+  .features{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="diag"></div>
+
+<!-- NAV -->
+<nav class="z1">
+  <div class="nav-inner">
+    <a class="nav-logo" href="#">
+      <div class="logo-badge">L</div>
+      <span class="logo-text">Laterano</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#plugins">Plugins</a>
+      <a href="#install">Install</a>
+      <a href="#features">Features</a>
+      <a href="https://github.com/tanhoangviet" target="_blank">GitHub</a>
+    </nav>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero z1">
+  <div class="hero-inner">
+    <div class="tag">Kettu · Bunny · Vendetta</div>
+    <h1>Discord Mobile<br/><em>Enhancement</em><br/>Plugins</h1>
+    <p class="hero-sub">
+      Open-source plugins bringing desktop-quality features to Discord mobile. Built for Kettu and Bunny client mods.
+    </p>
+    <div class="hero-actions">
+      <a href="#plugins" class="btn btn-primary">Browse Plugins</a>
+      <a href="https://github.com/tanhoangviet/BetterCodeBlocks" class="btn btn-secondary" target="_blank">Source Code</a>
+    </div>
+    <div class="stats ak-corner" style="margin-top:48px">
+      <div class="stat"><span class="stat-n">1</span><span class="stat-l">Plugins</span></div>
+      <div class="stat"><span class="stat-n">8+</span><span class="stat-l">Languages</span></div>
+      <div class="stat"><span class="stat-n">MIT</span><span class="stat-l">License</span></div>
+    </div>
+  </div>
+  <div class="hero-deco">ARK</div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PLUGINS -->
+<section id="plugins" class="z1">
+  <div class="wrap">
+    <div class="section-tag">AVAILABLE</div>
+    <h2>Plugin <span>Registry</span></h2>
+    <div class="plugins">
+
+      <!-- BetterCodeBlocks -->
+      <div class="plugin-card">
+        <div class="card-header">
+          <div class="card-icon">🎨</div>
+          <span class="card-ver">v1.0.0</span>
+        </div>
+        <div class="card-name">BetterCodeBlocks</div>
+        <div class="card-desc">
+          Syntax highlighting, line numbers &amp; copy button for code blocks. File viewer for .lua .py .js .ts .json attachments — just like Discord desktop.
+        </div>
+        <div class="card-tags">
+          <span class="tag-pill tg">Lua</span>
+          <span class="tag-pill tc">Python</span>
+          <span class="tag-pill tg">TypeScript</span>
+          <span class="tag-pill tc">syntax</span>
+          <span class="tag-pill tr">file viewer</span>
+        </div>
+        <div class="install-box" onclick="copyURL(this,'https://tanhoangviet.github.io/BetterCodeBlocks/BetterCodeBlocks')">
+          <span class="install-url">tanhoangviet.github.io/BetterCodeBlocks/BetterCodeBlocks</span>
+          <button class="copy-btn">⎘ COPY</button>
+        </div>
+      </div>
+
+      <!-- Placeholder -->
+      <div class="plugin-card" style="opacity:.4;pointer-events:none">
+        <div class="card-header">
+          <div class="card-icon">🔮</div>
+          <span class="card-ver">soon</span>
+        </div>
+        <div class="card-name">More Coming...</div>
+        <div class="card-desc">Additional plugins in development. Follow GitHub for updates.</div>
+        <div class="card-tags"><span class="tag-pill tg">in development</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="z1" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-tag">BETTERCODE</div>
+    <h2>Features <span>at a glance</span></h2>
+    <div class="features">
+      <div class="feat"><div class="feat-icon">🎨</div><div class="feat-title">Syntax Highlighting</div><div class="feat-desc">Lua, Python, JS, TS, CSS, HTML, JSON with Catppuccin Mocha theme</div></div>
+      <div class="feat"><div class="feat-icon">🔢</div><div class="feat-title">Line Numbers</div><div class="feat-desc">Just like a real code editor</div></div>
+      <div class="feat"><div class="feat-icon">⎘</div><div class="feat-title">One-Tap Copy</div><div class="feat-desc">Copy full code block in a single tap</div></div>
+      <div class="feat"><div class="feat-icon">📂</div><div class="feat-title">File Viewer</div><div class="feat-desc">Modal with code tab, info tab &amp; download for attachments</div></div>
+      <div class="feat"><div class="feat-icon">↓</div><div class="feat-title">Download</div><div class="feat-desc">Download attached code files directly</div></div>
+      <div class="feat"><div class="feat-icon">⚙️</div><div class="feat-title">Auto-Active</div><div class="feat-desc">Works immediately after install, no config needed</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="z1" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-tag">HOW TO</div>
+    <h2>Install <span>in 3 steps</span></h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">1</div>
+        <div>
+          <div class="step-title">Open Kettu Settings</div>
+          <div class="step-desc">Tap your profile → Settings → scroll to Kettu → Plugins</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <div>
+          <div class="step-title">Tap + and paste URL</div>
+          <div class="step-desc">Tap the blue + button, paste plugin URL:</div>
+          <div class="step-code" onclick="copyURL(this,'https://tanhoangviet.github.io/BetterCodeBlocks/BetterCodeBlocks')" style="cursor:pointer">
+            https://tanhoangviet.github.io/BetterCodeBlocks/BetterCodeBlocks
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <div>
+          <div class="step-title">Enable &amp; enjoy</div>
+          <div class="step-desc">Toggle the plugin on. Code blocks will be automatically highlighted!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="z1">
+  <div class="footer-inner">
+    <span class="footer-left">© 2026 TANHOANGVIET · LATERANO REGISTRY · MIT LICENSE</span>
+    <div class="footer-links">
+      <a href="https://github.com/tanhoangviet/BetterCodeBlocks" target="_blank">GitHub</a>
+      <a href="plugins/BetterCodeBlocks/manifest.json">Manifest</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+function copyURL(el, url) {
+  navigator.clipboard?.writeText(url).then(() => {
+    const btn = el.querySelector?.('.copy-btn') ?? el;
+    const orig = btn.textContent;
+    btn.textContent = '✓ COPIED';
+    btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>
