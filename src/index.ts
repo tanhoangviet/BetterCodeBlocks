@@ -3,16 +3,22 @@ import { React } from "@vendetta/metro/common";
 import { before, after } from "@vendetta/patcher";
 import { findInReactTree } from "@vendetta/utils";
 import { showToast } from "@vendetta/ui/toasts";
+import { semanticColors } from "@vendetta/ui";
+import { CodeIcon } from "./components/CodeIcon";
 
 const LazyActionSheet = findByProps("openLazy", "hideActionSheet");
-const ActionSheetRowModule = findByProps("ActionSheetRow");
-const ActionSheetRow = ActionSheetRowModule?.ActionSheetRow;
+const ActionSheetRow = findByProps("ActionSheetRow")?.ActionSheetRow;
 const MessageStore = findByStoreName("MessageStore");
 const Clipboard = findByProps("setString", "getString");
+const { stylesheet } = findByProps("createThemedStyleSheet") ?? {};
 
 const patches: Array<() => void> = [];
 
-function extractCode(content: string): { lang: string; code: string } | null {
+const styles = stylesheet?.createThemedStyleSheet?.({
+  icon: { width: 24, height: 24, tintColor: semanticColors?.INTERACTIVE_NORMAL },
+}) ?? {};
+
+function extractCode(content: string) {
   const m = /```(\w*)\n?([\s\S]*?)```/.exec(content);
   if (!m) return null;
   return { lang: m[1] || "txt", code: m[2].trim() };
@@ -20,44 +26,49 @@ function extractCode(content: string): { lang: string; code: string } | null {
 
 export default {
   onLoad() {
-    if (!LazyActionSheet) { showToast("BCB: no ActionSheet"); return; }
+    if (!LazyActionSheet) return;
 
     const unpatch = before("openLazy", LazyActionSheet, ([component, key, msg]) => {
       const message = msg?.message;
       if (key !== "MessageLongPressActionSheet" || !message) return;
 
       component.then((instance: any) => {
-        const innerUnpatch = after("default", instance, (_: any, component: any) => {
-          React.useEffect(() => () => innerUnpatch(), []);
+        let patched = false;
+        const innerUnpatch = after("default", instance, (_: any, comp: any) => {
+          if (patched) return;
 
           const content: string =
-            MessageStore?.getMessage(message.channel_id, message.id)?.content ??
-            message.content ?? "";
+            MessageStore?.getMessage(message.channel_id, message.id)?.content
+            ?? message.content ?? "";
 
           const block = extractCode(content);
           if (!block) return;
 
           const buttons = findInReactTree(
-            component,
+            comp,
             (x: any) => Array.isArray(x) && x[0]?.type?.name === "ActionSheetRow"
           );
           if (!buttons) return;
 
-          const position = Math.max(
-            buttons.findIndex((x: any) => x?.props?.message != null),
-            0
-          );
+          patched = true;
 
-          buttons.splice(position, 0,
+          buttons.splice(0, 0,
             React.createElement(ActionSheetRow, {
-              label: `⎘ Copy Code (${block.lang.toUpperCase()})`,
+              label: `Copy Code · ${block.lang.toUpperCase()}`,
+              icon: React.createElement(ActionSheetRow.Icon, {
+                IconComponent: () => React.createElement(CodeIcon, {
+                  size: 24,
+                  color: "#b8c8d8",
+                }),
+              }),
               onPress: () => {
-                LazyActionSheet.hideActionSheet();
                 Clipboard?.setString(block.code);
-                showToast("✓ Code copied!");
+                LazyActionSheet.hideActionSheet();
               },
             })
           );
+
+          React.useEffect(() => () => innerUnpatch(), []);
         });
       });
     });
