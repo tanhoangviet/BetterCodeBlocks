@@ -1,49 +1,53 @@
-import { React } from "@vendetta/metro/common";
+import { findByProps } from "@vendetta/metro";
 import { showToast } from "@vendetta/ui/toasts";
-import { EnhancedCodeBlock } from "./components/EnhancedCodeBlock";
-import { AttachmentPill, isSupportedFile } from "./components/FileViewer";
-import { after } from "@vendetta/patcher";
-import { findByName } from "@vendetta/metro";
 
-const patches: Array<() => void> = [];
+const g = globalThis as any;
+const v = g.bunny || g.vendetta;
+const metro = v?.metro;
+const find = (...p: string[]) => metro?.findByProps?.(...p);
+let unpatch: (() => void) | null = null;
 
-function patchCodeblock() {
-  const g = globalThis as any;
-  const c = g?.bunny?.ui?.components ?? g?.vendetta?.ui?.components;
-  if (!c?.Codeblock) return false;
-  const orig = c.Codeblock;
-  c.Codeblock = (p: any) => React.createElement(EnhancedCodeBlock, {
-    code: p.content ?? p.code ?? "",
-    lang: p.language ?? p.lang ?? "",
+function openUI(lang: string, code: string) {
+  const Alerts = v?.ui?.alerts || find("showConfirmationAlert");
+  const Clipboard = find("setString");
+  const Toasts = v?.ui?.toasts || find("showToast");
+  if (!Alerts) return;
+  Alerts.showConfirmationAlert({
+    title: `📄 code.${lang||"txt"}`,
+    content: `⚡ BetterCodeBlocks\nLang: ${(lang||"txt").toUpperCase()}\nSize: ${new TextEncoder().encode(code).length}B\n\n${code.slice(0,300)}${code.length>300?"...":""}`,
+    confirmText: "Copy Code",
+    cancelText: "Close",
+    onConfirm: () => { Clipboard?.setString(code); Toasts?.showToast("✓ Copied!"); },
   });
-  patches.push(() => { c.Codeblock = orig; });
-  return true;
 }
 
-function patchAttachments() {
-  const AC = findByName("Attachment") ?? findByName("FileAttachment");
-  if (!AC) return;
-  patches.push(after("default", AC, (args: any[], res: any) => {
-    if (!res) return res;
-    try {
-      const p = args[0];
-      const fn: string = p?.filename ?? p?.name ?? "";
-      if (!isSupportedFile(fn)) return res;
-      return React.createElement(AttachmentPill, {
-        filename: fn, url: p?.url ?? p?.proxy_url ?? "",
-        fileSize: p?.size ?? 0, children: res,
-      });
-    } catch { return res; }
-  }));
+function extract(content: string) {
+  const r: {lang:string;code:string}[] = [];
+  const re = /```(\w*)\n?([\s\S]*?)```/g;
+  let m;
+  while((m=re.exec(content))!==null) r.push({lang:m[1]||"txt",code:m[2].trim()});
+  return r;
 }
 
 export default {
   onLoad() {
-    showToast(patchCodeblock() ? "BetterCodeBlocks ✓" : "BCB: not found");
-    patchAttachments();
+    const D = find("dispatch","subscribe");
+    if (!D) { showToast("BCB: no Dispatcher"); return; }
+    const orig = D.dispatch.bind(D);
+    D.dispatch = (e: any) => {
+      try {
+        if (e?.type==="MESSAGE_CONTEXT_MENU"||e?.type==="MESSAGE_PRESS") {
+          const c = e?.message?.content||"";
+          if (c.includes("```")) {
+            const b = extract(c);
+            if (b.length) { openUI(b[0].lang,b[0].code); if(e.type==="MESSAGE_CONTEXT_MENU") return; }
+          }
+        }
+      } catch {}
+      return orig(e);
+    };
+    unpatch = () => { D.dispatch = orig; };
+    showToast("BetterCodeBlocks ✓");
   },
-  onUnload() {
-    patches.forEach(u => { try { u(); } catch {} });
-    patches.length = 0;
-  },
+  onUnload() { unpatch?.(); unpatch=null; },
 };
