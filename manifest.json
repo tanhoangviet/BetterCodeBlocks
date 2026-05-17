@@ -2,6 +2,6 @@
   "name": "BetterCodeBlocks",
   "description": "Syntax highlighting, copy button & file viewer for code blocks and attachments",
   "authors": [{ "name": "tanhoangviet", "id": "000000000000000001" }],
-  "main": "src/index.ts",
+  "main": "plugin-src/src/index.ts",
   "vendetta": { "icon": "ic_message_edit" }
 }
