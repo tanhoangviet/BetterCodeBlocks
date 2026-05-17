@@ -1,66 +1,164 @@
-import { React, ReactNative as RN } from "@vendetta/metro/common";
+import { React } from "@vendetta/metro/common";
 import { findByProps } from "@vendetta/metro";
 import { showToast } from "@vendetta/ui/toasts";
-import { Theme, tokenize, TOKEN_COLOR, LANG_LABELS, fmtSize } from "../common";
-import { t } from "../i18n";
+import { tokenize, getColor, LANG_LABEL, Colors } from "../utils/tokenizer";
 
-const { View, Text, TouchableOpacity, ScrollView, StyleSheet } = RN;
-const Clipboard = findByProps("setString", "getString") ?? { setString: (_: string) => {} };
+const { View, Text, TouchableOpacity, ScrollView, StyleSheet } = (
+  (globalThis as any).bunny?.metro?.common?.ReactNative ??
+  findByProps("View","Text","ScrollView")
+);
 
+const Clipboard = findByProps("setString","getString") ?? { setString: (_: string) => {} };
+
+// ── SVG code icon via unicode ──────────────────────────────────────────────────
 const S = StyleSheet.create({
-  wrap:   { backgroundColor: Theme.bg, borderRadius: 8, borderWidth: 1, borderColor: Theme.border, overflow: "hidden", marginVertical: 6 },
-  head:   { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 7, backgroundColor: Theme.bgSurf, borderBottomWidth: 1, borderBottomColor: Theme.border },
-  hLeft:  { flexDirection: "row", alignItems: "center", gap: 6 },
-  dot:    { width: 7, height: 7, borderRadius: 99, backgroundColor: Theme.accent },
-  lang:   { color: Theme.muted, fontSize: 11, fontFamily: "monospace", letterSpacing: 0.5 },
-  copy:   { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 5, backgroundColor: Theme.bgOver, borderWidth: 1, borderColor: Theme.border },
-  copyOk: { borderColor: Theme.success, backgroundColor: "#1e3a2a" },
-  copyT:  { color: Theme.white, fontSize: 11, fontFamily: "monospace" },
-  copyOT: { color: Theme.success },
-  body:   { flexDirection: "row", padding: 12 },
-  nums:   { paddingRight: 12, borderRightWidth: 1, borderRightColor: Theme.border, marginRight: 12, alignItems: "flex-end" },
-  num:    { color: Theme.muted, fontFamily: "monospace", fontSize: 12, lineHeight: 20, minWidth: 20, textAlign: "right" },
-  code:   { fontFamily: "monospace", fontSize: 13, lineHeight: 20, color: Theme.plain },
+  wrap: {
+    marginVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: "hidden",
+    backgroundColor: Colors.bg,
+  },
+  // Nav bar top
+  nav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.bgSurf,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  navLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+  langDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accent },
+  langText: { color: Colors.muted, fontSize: 11, fontFamily: "monospace", letterSpacing: 0.5 },
+  // Code area
+  codeScroll: { maxHeight: 300 },
+  codeInner: { flexDirection: "row", padding: 12 },
+  lineNums: {
+    paddingRight: 10,
+    marginRight: 10,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+    alignItems: "flex-end",
+    minWidth: 28,
+  },
+  lineNum: { color: Colors.muted, fontFamily: "monospace", fontSize: 12, lineHeight: 20, textAlign: "right" },
+  codeText: { fontFamily: "monospace", fontSize: 13, lineHeight: 20, color: Colors.text },
+  // Bottom nav bar
+  bottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.bgSurf,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  barInfo: { flex: 1, color: Colors.muted, fontSize: 10, fontFamily: "monospace", letterSpacing: 0.5 },
+  barBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgOver,
+  },
+  barBtnOk: { borderColor: Colors.success, backgroundColor: "#1e3a2a" },
+  barBtnText: { color: Colors.text, fontSize: 11, fontFamily: "monospace" },
+  barBtnTextOk: { color: Colors.success },
 });
 
-export function EnhancedCodeBlock({ code, lang = "" }: { code: string; lang?: string }) {
+interface Props { content: string; language?: string }
+
+export function EnhancedCodeBlock({ content, language }: Props) {
   const [copied, setCopied] = React.useState(false);
-  const label = LANG_LABELS[lang.toLowerCase()] ?? (lang ? lang.toUpperCase() : "Code");
-  const lines = code.split("\n");
-  const tokens = tokenize(code, lang);
+  const [expanded, setExpanded] = React.useState(false);
+
+  const lang = (language || "").toLowerCase();
+  const label = LANG_LABEL[lang] ?? (lang ? lang.toUpperCase() : "Code");
+  const lines = content.split("\n");
+  const lineCount = lines.length;
+  const tokens = tokenize(content, lang);
 
   const doCopy = () => {
-    Clipboard.setString(code);
+    Clipboard.setString(content);
     setCopied(true);
-    showToast(t("ui.toastCopied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
   return React.createElement(View, { style: S.wrap },
-    // ── Header ──
-    React.createElement(View, { style: S.head },
-      React.createElement(View, { style: S.hLeft },
-        React.createElement(View, { style: S.dot }),
-        React.createElement(Text, { style: S.lang }, label)
+
+    // ── Top nav bar ──
+    React.createElement(View, { style: S.nav },
+      React.createElement(View, { style: S.navLeft },
+        React.createElement(View, { style: S.langDot }),
+        React.createElement(Text, { style: S.langText }, label),
       ),
-      React.createElement(TouchableOpacity, { onPress: doCopy, style: [S.copy, copied && S.copyOk], activeOpacity: 0.7 },
-        React.createElement(Text, { style: [S.copyT, copied && S.copyOT] }, copied ? t("ui.copied") : t("ui.copy"))
-      )
     ),
-    // ── Code ──
-    React.createElement(ScrollView, { horizontal: true, showsHorizontalScrollIndicator: false },
-      React.createElement(ScrollView, { nestedScrollEnabled: true, showsVerticalScrollIndicator: true, style: { maxHeight: 320 } },
-        React.createElement(View, { style: S.body },
-          React.createElement(View, { style: S.nums },
-            ...lines.map((_, i) => React.createElement(Text, { key: i, style: S.num }, i + 1))
-          ),
-          React.createElement(Text, { selectable: true, style: S.code },
-            ...tokens.map((tok, i) =>
-              React.createElement(Text, { key: i, style: { color: TOKEN_COLOR[tok.t], fontFamily: "monospace" } }, tok.v)
+
+    // ── Code area ──
+    React.createElement(ScrollView, {
+      horizontal: true,
+      showsHorizontalScrollIndicator: false,
+      style: expanded ? null : S.codeScroll,
+    },
+      React.createElement(ScrollView, {
+        showsVerticalScrollIndicator: true,
+        nestedScrollEnabled: true,
+      },
+        React.createElement(View, { style: S.codeInner },
+
+          // Line numbers
+          React.createElement(View, { style: S.lineNums },
+            ...lines.map((_, i) =>
+              React.createElement(Text, { key: i, style: S.lineNum }, String(i + 1))
             )
-          )
+          ),
+
+          // Highlighted code
+          React.createElement(Text, { selectable: true, style: S.codeText },
+            ...tokens.map((tok, i) =>
+              React.createElement(Text, {
+                key: i,
+                style: { color: getColor(tok.t), fontFamily: "monospace" },
+              }, tok.v)
+            )
+          ),
         )
       )
-    )
+    ),
+
+    // ── Bottom nav bar ──
+    React.createElement(View, { style: S.bottomBar },
+
+      // Info: lines + size
+      React.createElement(Text, { style: S.barInfo },
+        `${lineCount} line${lineCount !== 1 ? "s" : ""}  ·  ${new TextEncoder().encode(content).length}B`
+      ),
+
+      // Expand/collapse
+      React.createElement(TouchableOpacity, {
+        style: S.barBtn,
+        onPress: () => setExpanded(e => !e),
+        activeOpacity: 0.7,
+      },
+        React.createElement(Text, { style: S.barBtnText }, expanded ? "▲" : "▼")
+      ),
+
+      // Copy button
+      React.createElement(TouchableOpacity, {
+        style: [S.barBtn, copied && S.barBtnOk],
+        onPress: doCopy,
+        activeOpacity: 0.7,
+      },
+        React.createElement(Text, {
+          style: [S.barBtnText, copied && S.barBtnTextOk],
+        }, copied ? "✓ Copied" : "⎘ Copy")
+      ),
+    ),
   );
 }
