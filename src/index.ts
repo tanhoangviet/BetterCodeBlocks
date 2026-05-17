@@ -18,17 +18,22 @@ function extractCode(content: string) {
   return m ? { lang: m[1]||"txt", code: m[2].trim() } : null;
 }
 
-function patchCodeblock() {
-  const components = bunnyUI?.components;
-  if (!components?.Codeblock) return false;
-  const orig = components.Codeblock;
-  components.Codeblock = (props: any) =>
-    React.createElement(EnhancedCodeBlock, {
-      content: props.content ?? props.code ?? "",
-      language: props.language ?? props.lang ?? "",
+function patchCodeBlocks(): void {
+  const SM = findByProps("defaultRules", "parserFor");
+  if (!SM?.defaultRules?.codeBlock) {
+    console.error("BCB: Could not find code block parser");
+    return;
+  }
+  const orig = SM.defaultRules.codeBlock.react;
+  SM.defaultRules.codeBlock.react = (node: any, output: any, state: any) => {
+    if (!storage.enabled) return orig(node, output, state);
+    return React.createElement(EnhancedCodeBlock, {
+      key: state?.key ?? String(Math.random()),
+      code: node.content ?? "",
+      lang: node.lang ?? "",
     });
-  patches.push(() => { components.Codeblock = orig; });
-  return true;
+  };
+  patches.push(() => { SM.defaultRules.codeBlock.react = orig; });
 }
 
 function patchContextMenu() {
